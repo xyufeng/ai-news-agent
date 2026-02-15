@@ -1,5 +1,8 @@
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 import anthropic
-import resend
 
 from ai_news_agent import config, db
 
@@ -46,17 +49,23 @@ def synthesize(articles: list[dict]) -> str:
 
 
 def send_email(digest_content: str, digest_id: int) -> None:
-    """Send the digest via Resend."""
-    resend.api_key = config.RESEND_API_KEY
+    """Send the digest via Gmail SMTP."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "AI News Digest"
+    msg["From"] = config.DIGEST_EMAIL_FROM or config.SMTP_USER
+    msg["To"] = config.DIGEST_EMAIL_TO
 
-    resend.Emails.send(
-        {
-            "from": config.DIGEST_EMAIL_FROM,
-            "to": [config.DIGEST_EMAIL_TO],
-            "subject": "AI News Digest",
-            "html": f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{digest_content}</pre>",
-        }
-    )
+    msg.attach(MIMEText(digest_content, "plain"))
+    msg.attach(MIMEText(
+        f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{digest_content}</pre>",
+        "html",
+    ))
+
+    with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
+        server.starttls()
+        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+        server.send_message(msg)
+
     db.mark_digest_emailed(digest_id)
 
 
