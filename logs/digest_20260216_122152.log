@@ -1,0 +1,80 @@
+=== AI News Digest - Mon 16 Feb 2026 12:21:52 +08 ===
+
+Crawling sources...
+Crawling hackernews...
+  hackernews: 30 new articles (of 30 fetched)
+Crawling reddit...
+  reddit: 35 new articles (of 54 fetched)
+Crawling arxiv...
+  arxiv: 20 new articles (of 20 fetched)
+Crawling huggingface...
+  huggingface: 16 new articles (of 20 fetched)
+Crawling microsoft...
+  microsoft: 8 new articles (of 35 fetched)
+Crawling rss...
+  rss: 15 new articles (of 57 fetched)
+
+Total: 124 new articles saved.
+
+Generating and sending digest...
+Generating digest...
+# AI Daily Digest
+**Date: February 15, 2026**
+
+***
+
+### Top Headlines
+
+1.  **OpenClaw Founder Peter Steinberger Joins OpenAI**
+    Peter Steinberger, the creator of the viral AI agent "OpenClaw," is joining OpenAI. Sam Altman announced the acquisition, noting that Steinberger has "amazing ideas" for integrating AI agents, while confirming that OpenClaw will live on as an open-source project.
+    *Source: [The Verge](https://www.theverge.com/ai-artificial-intelligence/879623/openclaw-founder-peter-steinberger-joins-openai), [TechCrunch](https://techcrunch.com/2026/02/15/openclaw-creator-peter-steinberger-joins-openai/)*
+
+2.  **Anthropic and Pentagon in Dispute Over Claude Usage**
+    Reports have surfaced of a disagreement between Anthropic and the U.S. Department of Defense regarding the use of Claude. The central conflict appears to be whether the AI model can be utilized for mass domestic surveillance and the development of autonomous weapons.
+    *Source: [TechCrunch](https://techcrunch.com/2026/02/15/anthropic-and-the-pentagon-are-reportedly-arguing-over-claude-usage/), [Reddit](https://reddit.com/r/ClaudeAI/comments/1r5of5x/elon_musk_crashing_out_at_anthropic_lmao/)*
+
+3.  **NPR Host David Greene Sues Google Over NotebookLM Voice**
+    Longtime NPR "Morning Edition" host David Greene is suing Google, alleging that the male voice used in the NotebookLM tool is an unauthorized clone of his own. Greene claims the tool "stole his voice," raising significant questions about voice licensing and AI rights.
+    *Source: [TechCrunch](https://techcrunch.com/2026/02/15/longtime-npr-host-david-greene-sues-google-over-notebooklm-voice/), [Washington Post](https://www.washingtonpost.com/technology/2026/02/15/david-greene-google-ai-podcast/)*
+
+***
+
+### Industry News & Acquisitions
+
+*   **OpenAI Expands in India:** Sam Altman revealed that India now boasts 100 million weekly active ChatGPT users, marking the largest student user base globally. This comes alongside a strategic pivot for **Glean**, which is repositioning itself from an enterprise search tool to a middleware layer for enterprise AI.
+*   **Infrastructure Funding:** As India pushes for domestic AI infrastructure, startup **Neysa** secured up to $1.2B in financing from Blackstone. Meanwhile, Peak XV backed **C2i** with $15M to address power bottlenecks in AI data centers via a "grid-to-GPU" approach.
+*   **AI in Entertainment:** *Pulp Fiction* co-writer Roger Avary stated that attaching "AI" to project proposals has suddenly unlocked funding, allowing him to move into production on three features after years of stagnation.
+
+*Sources: [TechCrunch](https://techcrunch.com/2026/02/15/india-has-100m-weekly-active-chatgpt-users-sam-altman-says/), [VentureBeat](https://venturebeat.com/infrastructure/nvidia-groq-and-the-limestone-race-to-real-time-ai-why-enterprises-win-or), [Reddit](https://reddit.com/r/artificial/comments/1r5xr49/pulp_fiction_cowriter_roger_avary_says_it_was/)*
+
+***
+
+### LLM Research & Open Source
+
+*   **New Open Models:** The community is buzzing about **MiniMax-2.5**, a 230B parameter (10B active) model with a 200K context window that achieves State-of-the-Art (SOTA) results in coding and agentic tool use. Additionally, **inclusionAI** released **Ling-2.5-1T**, a massive 1-trillion parameter open-source model.
+*   **Deflationary Training Costs:** Citing Andrej Karpathy, discussions highlight a 40% annual drop in the cost to train GPT-2 equivalent models. This trend emphasizes the need for efficient small models, such as the new 4B parameter model capable of proving hard theorems.
+*   **Benchmarking & Robotics:** New research introduces **SciAgentGym** for benchmarking multi-step scientific tool use in LLMs. In robotics, **Xiaomi-Robotics-0** and **GeneralVLA** were released to bridge the gap between vision-language models and physical action.
+
+*Sources: [Reddit](https://reddit.com/r/LocalLLaMA/comments/1r5h1gj/you_can_run_minimax25_locally/), [Reddit](https://reddit.com/r/LocalLLaMA/comments/1r5uhfu/deflation_cost_to_train_ai_models_drops_40_per/), [HuggingFace](https://huggingface.co/papers/2602.12984), [HuggingFace](https://huggingface.co/papers/2602.12684)*
+
+***
+
+### Opinions, Strategy & Policy
+
+*   **Agent Strategy:** C-level executives are expressing anxiety about the breakneck speed of AI agent development, fearing their strategies are becoming obsolete faster than they can adapt. Meanwhile, a debate is raging regarding the "virality" of OpenClaw, with some questioning if the hype is organic or marketing-driven.
+*   **AI Quality & "Vibes":** Users are reporting inconsistent performance in newer model iterations (e.g., Opus 4.6), specifically citing CSS "div soup" and broken specificity chains. Others are complaining about sudden, strict usage limits (9-hour session resets) on Max plans.
+*   **Surveillance State:** An analysis of Amazon Ring and Google Nest data highlights the severity of the U.S. surveillance state, arguing these consumer devices have unwittingly created a massive, decentralized monitoring network.
+
+*Sources: [Reddit](https://reddit.com/r/ClaudeAI/comments/1r5d576/small_company_leader_here_ai_agents_are_moving/), [Reddit](https://reddit.com/r/ClaudeAI/comments/1r5dai0/opus_46/), [HackerNews](https://greenwald.substack.com/p/amazons-ring-and-googles-nest-unwittingly)*
+
+***
+
+### Tech & Developer Tools
+
+*   **Windows Development:** A new blog post claims to have "fixed" native Windows development, offering solutions to long-standing structural issues.
+*   **Modern CSS:** Developers are encouraged to update their workflows with modern CSS snippets, moving away from legacy practices common in 2015.
+*   **Privacy & Security:** **Pangolin**, a new open-source identity-based VPN alternative to Twingate and Zscaler, was showcased alongside **Knock-Knock.net**, a tool for visualizing bot traffic hitting servers.
+
+*Sources: [HackerNews](https://marler8997.github.io/blog/fixed-windows/), [HackerNews](https://modern-css.com), [HackerNews](https://github.com/fosrl/pangolin)*
+
+=== Complete ===

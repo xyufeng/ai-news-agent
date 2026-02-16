@@ -1,4 +1,5 @@
 import smtplib
+from collections import defaultdict
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -6,46 +7,148 @@ import anthropic
 
 from ai_news_agent import config, db
 
-DIGEST_PROMPT = """\
-You are an AI news curator. Given the following list of articles crawled today, produce a concise daily digest in Markdown format.
+# Use Haiku for per-source synthesis (faster, cheaper)
+HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
-Group articles by theme (e.g., "LLM Research", "Industry News", "Open Source", "Policy & Safety").
-For each group, write 2-3 sentence summaries of the most important stories.
-Highlight the top 3 most significant stories at the top as "Headlines".
-Include source links. Skip duplicates or low-quality items.
-Keep the total digest under 1500 words.
+# Prompt for synthesizing a single source group
+SOURCE_SYNTHESIS_PROMPT = """\
+You are an AI news analyst specializing in enterprise technology. Analyze the following articles from {source_name} and produce a concise summary.
+
+Your task:
+1. Identify the 3-5 most important stories and rank them by significance
+2. Extract key insights and emerging trends
+3. Flag any stories relevant to enterprise AI adoption (mark with 🏢)
+4. Note any breaking news or urgent developments (mark with ⚡)
+
+Format your response as:
+## {source_name}
+
+**Top Stories:**
+1. [Story title] - 1-2 sentence summary (include URL from article)
+2. ...
+
+**Key Insights:** [2-3 bullet points on trends/patterns]
+**Enterprise Relevance:** [What matters for enterprise AI adoption, if any]
 
 Articles:
 {articles}
 """
 
+# Prompt for combining all source summaries into final digest
+FINAL_SYNTHESIS_PROMPT = """\
+You are an AI news curator creating a daily executive briefing. You have summaries from multiple news sources about AI, machine learning, and enterprise technology.
 
-def _format_articles(articles: list[dict]) -> str:
+Create a polished daily digest with these sections:
+
+## 📰 Top Headlines
+The 5 most significant stories across ALL sources, ranked by:
+- Industry impact
+- Enterprise AI relevance
+- Novelty/breaking news status
+
+## 🔥 Emerging Trends
+Cross-source patterns and themes you noticed. What's gaining momentum?
+
+## 🏢 Enterprise AI Radar
+Stories that matter most for enterprise AI adoption. Focus on:
+- New product releases and features
+- Security, compliance, and governance
+- Cost and deployment considerations
+- Vendor landscape changes
+
+## 📚 By Source
+Include the key highlights from each source (condensed versions).
+
+## 💡 Quick Takes
+2-3 brief observations or predictions based on today's news.
+
+Keep the total digest under 2000 words. Use markdown formatting with links.
+
+Source Summaries:
+{summaries}
+"""
+
+
+def _group_by_source(articles: list[dict]) -> dict[str, list[dict]]:
+    """Group articles by their source."""
+    groups = defaultdict(list)
+    for a in articles:
+        groups[a["source"]].append(a)
+    return dict(groups)
+
+
+def _format_source_articles(articles: list[dict]) -> str:
+    """Format articles for source-level synthesis."""
     lines = []
     for a in articles:
-        parts = [f"- **{a['title']}** ({a['source']})"]
-        if a.get("summary"):
-            parts.append(f"  {a['summary'][:200]}")
-        parts.append(f"  URL: {a['url']}")
+        parts = [f"- **{a['title']}**"]
         if a.get("score"):
-            parts.append(f"  Score: {a['score']}")
+            parts.append(f"  Score: {a['score']} pts")
+        if a.get("summary"):
+            parts.append(f"  Summary: {a['summary'][:300]}")
+        parts.append(f"  URL: {a['url']}")
         lines.append("\n".join(parts))
     return "\n\n".join(lines)
 
 
-def synthesize(articles: list[dict]) -> str:
-    """Use Claude to synthesize a digest from articles."""
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    formatted = _format_articles(articles)
+def _synthesize_source(client: anthropic.Anthropic, source_name: str, articles: list[dict]) -> str:
+    """Synthesize a single source group using Haiku."""
+    formatted = _format_source_articles(articles)
+
+    message = client.messages.create(
+        model=HAIKU_MODEL,
+        max_tokens=2048,
+        messages=[
+            {
+                "role": "user",
+                "content": SOURCE_SYNTHESIS_PROMPT.format(
+                    source_name=source_name,
+                    articles=formatted,
+                ),
+            },
+        ],
+    )
+    return message.content[0].text
+
+
+def _synthesize_final(client: anthropic.Anthropic, summaries: list[str]) -> str:
+    """Combine all source summaries into final digest using Sonnet."""
+    combined = "\n\n---\n\n".join(summaries)
 
     message = client.messages.create(
         model=config.ANTHROPIC_MODEL,
         max_tokens=4096,
         messages=[
-            {"role": "user", "content": DIGEST_PROMPT.format(articles=formatted)},
+            {
+                "role": "user",
+                "content": FINAL_SYNTHESIS_PROMPT.format(summaries=combined),
+            },
         ],
     )
     return message.content[0].text
+
+
+def synthesize(articles: list[dict]) -> str:
+    """Two-step synthesis: per-source with Haiku, then combined with Sonnet."""
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+
+    # Step 1: Group by source
+    source_groups = _group_by_source(articles)
+
+    # Step 2: Synthesize each source with Haiku
+    source_summaries = []
+    for source_name, source_articles in source_groups.items():
+        try:
+            summary = _synthesize_source(client, source_name, source_articles)
+            source_summaries.append(summary)
+        except Exception as e:
+            # If a source fails, include a basic fallback
+            source_summaries.append(f"## {source_name}\n\nError synthesizing: {e}")
+
+    # Step 3: Combine into final digest with Sonnet
+    final_digest = _synthesize_final(client, source_summaries)
+
+    return final_digest
 
 
 def send_email(digest_content: str, digest_id: int) -> None:
@@ -56,10 +159,12 @@ def send_email(digest_content: str, digest_id: int) -> None:
     msg["To"] = config.DIGEST_EMAIL_TO
 
     msg.attach(MIMEText(digest_content, "plain"))
-    msg.attach(MIMEText(
-        f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{digest_content}</pre>",
-        "html",
-    ))
+    msg.attach(
+        MIMEText(
+            f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{digest_content}</pre>",
+            "html",
+        )
+    )
 
     with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
         server.starttls()
