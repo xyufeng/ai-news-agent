@@ -4,7 +4,9 @@
 
 set -e
 
-PROJECT_DIR="/home/ubuntu/ai-news-agent"
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/digest_$(date +%Y%m%d_%H%M%S).log"
 
