@@ -2,7 +2,7 @@ import httpx
 
 from ai_news_agent.crawlers.base import Article, BaseCrawler
 
-SUBREDDITS = ["MachineLearning", "artificial", "LocalLLaMA"]
+SUBREDDITS = ["MachineLearning", "artificial", "LocalLLaMA", "ClaudeAI"]
 MAX_POSTS = 15
 
 

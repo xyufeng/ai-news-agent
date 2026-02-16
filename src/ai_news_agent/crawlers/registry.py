@@ -3,6 +3,8 @@ from ai_news_agent.crawlers.hackernews import HackerNewsCrawler
 from ai_news_agent.crawlers.reddit import RedditCrawler
 from ai_news_agent.crawlers.arxiv import ArxivCrawler
 from ai_news_agent.crawlers.rss import RSSCrawler
+from ai_news_agent.crawlers.huggingface import HuggingFaceCrawler
+from ai_news_agent.crawlers.microsoft import MicrosoftCrawler
 
 
 def get_all_crawlers() -> list[BaseCrawler]:
@@ -10,6 +12,8 @@ def get_all_crawlers() -> list[BaseCrawler]:
         HackerNewsCrawler(),
         RedditCrawler(),
         ArxivCrawler(),
+        HuggingFaceCrawler(),
+        MicrosoftCrawler(),
         RSSCrawler(),
     ]
 

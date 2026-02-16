@@ -8,10 +8,11 @@ from ai_news_agent.crawlers.base import Article, BaseCrawler
 DEFAULT_FEEDS: dict[str, str] = {
     "techcrunch": "https://techcrunch.com/feed/",
     "venturebeat": "https://venturebeat.com/feed/",
+    "theverge": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+    "arstechnica": "https://feeds.arstechnica.com/arstechnica/technology-lab",
     "anthropic": "https://www.anthropic.com/feed",
     "openai": "https://openai.com/blog/rss.xml",
     "google-ai": "https://blog.google/technology/ai/rss/",
-    "microsoft-ai": "https://blogs.microsoft.com/ai/feed/",
 }
 
 
