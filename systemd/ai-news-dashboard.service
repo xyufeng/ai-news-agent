@@ -1,0 +1,15 @@
+[Unit]
+Description=AI News Dashboard (Streamlit)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ai-news-agent
+Environment="PATH=/home/ubuntu/ai-news-agent/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/snap/bin/uv run streamlit run src/ai_news_agent/dashboard/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

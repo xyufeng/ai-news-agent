@@ -1,4 +1,5 @@
-from datetime import datetime, timezone, timedelta
+import subprocess
+from datetime import datetime, timedelta, timezone
 
 import click
 
@@ -82,3 +83,26 @@ def digest(dry_run: bool, since: str | None):
 
     if dry_run:
         click.echo("\n(Dry run — email not sent)")
+
+
+@cli.command()
+@click.option("--port", "-p", default=8501, help="Port to run dashboard on")
+@click.option("--host", "-h", default="0.0.0.0", help="Host to bind to")
+def dashboard(port: int, host: str):
+    """Launch the Streamlit dashboard."""
+    import os
+
+    dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard", "app.py")
+    subprocess.run(
+        [
+            "streamlit",
+            "run",
+            dashboard_path,
+            "--server.port",
+            str(port),
+            "--server.address",
+            host,
+            "--server.headless",
+            "true",
+        ]
+    )
