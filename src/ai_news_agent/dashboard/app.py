@@ -275,6 +275,28 @@ def render_sidebar():
                 st.sidebar.error(f"Crawl failed: {result.stderr[:200]}")
         st.rerun()
 
+    # Digest button
+    if st.sidebar.button("📧 Send Digest", use_container_width=True):
+        import os
+
+        cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        if not os.path.exists(os.path.join(cwd, "pyproject.toml")):
+            cwd = "/home/ubuntu/ai-news-agent"
+
+        with st.sidebar.status("Generating digest with Claude...", expanded=True):
+            result = subprocess.run(
+                ["uv", "run", "news", "digest"],
+                capture_output=True,
+                text=True,
+                cwd=cwd,
+            )
+            if result.returncode == 0:
+                st.sidebar.success("Digest sent!")
+                st.cache_data.clear()
+            else:
+                st.sidebar.error(f"Digest failed: {result.stderr[:200]}")
+        st.rerun()
+
     # Convert dates to ISO format
     date_from_iso = datetime.combine(date_from, datetime.min.time()).isoformat() if date_from else None
     date_to_iso = datetime.combine(date_to, datetime.max.time()).isoformat() if date_to else None
