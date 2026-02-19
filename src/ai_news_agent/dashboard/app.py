@@ -1,4 +1,5 @@
 import sqlite3
+import subprocess
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
@@ -249,6 +250,29 @@ def render_sidebar():
     st.sidebar.divider()
     if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
         st.cache_data.clear()
+        st.rerun()
+
+    # Crawl button
+    if st.sidebar.button("🕷️ Crawl Now", use_container_width=True):
+        import os
+
+        # Find project directory (works locally and on EC2)
+        cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        if not os.path.exists(os.path.join(cwd, "pyproject.toml")):
+            cwd = "/home/ubuntu/ai-news-agent"  # EC2 fallback
+
+        with st.sidebar.status("Crawling sources...", expanded=True):
+            result = subprocess.run(
+                ["uv", "run", "news", "crawl"],
+                capture_output=True,
+                text=True,
+                cwd=cwd,
+            )
+            if result.returncode == 0:
+                st.sidebar.success("Crawl complete!")
+                st.cache_data.clear()
+            else:
+                st.sidebar.error(f"Crawl failed: {result.stderr[:200]}")
         st.rerun()
 
     # Convert dates to ISO format
