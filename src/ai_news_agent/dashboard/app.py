@@ -245,6 +245,12 @@ def render_sidebar():
         placeholder="Search titles and summaries...",
     )
 
+    # Refresh button
+    st.sidebar.divider()
+    if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
     # Convert dates to ISO format
     date_from_iso = datetime.combine(date_from, datetime.min.time()).isoformat() if date_from else None
     date_to_iso = datetime.combine(date_to, datetime.max.time()).isoformat() if date_to else None
