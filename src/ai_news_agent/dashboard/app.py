@@ -469,11 +469,16 @@ def render_linkedin_generator():
     for idx, row in articles_df.head(20).iterrows():
         col_idx = idx % 2
         with cols[col_idx]:
-            # Use score for default selection (top 5 by default)
-            default_checked = select_all or (row["score"] and row["score"] > articles_df["score"].quantile(0.8))
+            # Handle NaN scores safely
+            score = row["score"]
+            has_score = pd.notna(score) and score is not None
 
+            # Use score for default selection (top 5 by default)
+            default_checked = select_all or (has_score and score > articles_df["score"].quantile(0.8))
+
+            score_display = f"⭐ {int(score)} pts" if has_score else "⭐ 0 pts"
             if st.checkbox(
-                f"**{row['title'][:80]}{'...' if len(row['title']) > 80 else ''}**\n{row['source']} | ⭐ {int(row['score']) if row['score'] else 0} pts",
+                f"**{row['title'][:80]}{'...' if len(row['title']) > 80 else ''}**\n{row['source']} | {score_display}",
                 value=default_checked,
                 key=f"topic_{idx}",
             ):
@@ -482,7 +487,7 @@ def render_linkedin_generator():
                     "summary": row["summary"],
                     "source": row["source"],
                     "url": row["url"],
-                    "score": row["score"],
+                    "score": int(score) if has_score else 0,
                 })
 
     st.markdown(f"**{len(selected_topics)} topics selected**")
