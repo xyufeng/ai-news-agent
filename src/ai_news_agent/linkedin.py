@@ -4,6 +4,18 @@ import anthropic
 
 from ai_news_agent import config
 
+# Reusable client
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    """Get or create the Anthropic client (singleton pattern)."""
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    return _client
+
+
 LINKEDIN_POST_PROMPT = """\
 You are Yufeng, a technology professional writing a LinkedIn post. Write in a conversational, reflective style grounded in real experience. Avoid generic AI-sounding language.
 
@@ -46,7 +58,7 @@ Write the LinkedIn article now with a headline:
 
 def generate_linkedin_post(topics: list[dict]) -> str:
     """Generate a LinkedIn post from selected topics."""
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    client = _get_client()
 
     topics_text = _format_topics(topics)
 
@@ -62,7 +74,7 @@ def generate_linkedin_post(topics: list[dict]) -> str:
 
 def generate_linkedin_article(topics: list[dict]) -> str:
     """Generate a LinkedIn article from selected topics."""
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    client = _get_client()
 
     topics_text = _format_topics(topics)
 

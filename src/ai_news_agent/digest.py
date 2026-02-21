@@ -10,6 +10,20 @@ from ai_news_agent import config, db
 # Use Haiku for per-source synthesis (faster, cheaper)
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
+# Fallback models if primary fails
+FALLBACK_MODELS = ["claude-sonnet-4-6", "claude-3-5-sonnet-20241022"]
+
+# Reusable client
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic:
+    """Get or create the Anthropic client (singleton pattern)."""
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    return _client
+
 # Prompt for synthesizing a single source group
 SOURCE_SYNTHESIS_PROMPT = """\
 You are an AI news analyst specializing in enterprise technology. Analyze the following articles from {source_name} and produce a concise summary.
@@ -111,26 +125,35 @@ def _synthesize_source(client: anthropic.Anthropic, source_name: str, articles: 
     return message.content[0].text
 
 
-def _synthesize_final(client: anthropic.Anthropic, summaries: list[str]) -> str:
-    """Combine all source summaries into final digest using Sonnet."""
+def _synthesize_with_fallback(client: anthropic.Anthropic, summaries: list[str]) -> str:
+    """Combine all source summaries into final digest with model fallback."""
     combined = "\n\n---\n\n".join(summaries)
+    models_to_try = [config.ANTHROPIC_MODEL] + FALLBACK_MODELS
 
-    message = client.messages.create(
-        model=config.ANTHROPIC_MODEL,
-        max_tokens=4096,
-        messages=[
-            {
-                "role": "user",
-                "content": FINAL_SYNTHESIS_PROMPT.format(summaries=combined),
-            },
-        ],
-    )
-    return message.content[0].text
+    for model in models_to_try:
+        try:
+            message = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": FINAL_SYNTHESIS_PROMPT.format(summaries=combined),
+                    },
+                ],
+            )
+            return message.content[0].text
+        except anthropic.APIError as e:
+            if model == models_to_try[-1]:
+                raise  # Re-raise if all models failed
+            continue  # Try next model
+
+    raise RuntimeError("All models failed")
 
 
 def synthesize(articles: list[dict]) -> str:
     """Two-step synthesis: per-source with Haiku, then combined with Sonnet."""
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    client = _get_client()
 
     # Step 1: Group by source
     source_groups = _group_by_source(articles)
@@ -145,8 +168,8 @@ def synthesize(articles: list[dict]) -> str:
             # If a source fails, include a basic fallback
             source_summaries.append(f"## {source_name}\n\nError synthesizing: {e}")
 
-    # Step 3: Combine into final digest with Sonnet
-    final_digest = _synthesize_final(client, source_summaries)
+    # Step 3: Combine into final digest with Sonnet (with fallback)
+    final_digest = _synthesize_with_fallback(client, source_summaries)
 
     return final_digest
 

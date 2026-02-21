@@ -33,6 +33,10 @@ def init_db() -> None:
             article_count INTEGER,
             emailed_at TEXT
         );
+
+        CREATE INDEX IF NOT EXISTS idx_articles_crawled_at ON articles(crawled_at);
+        CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source);
+        CREATE INDEX IF NOT EXISTS idx_articles_score ON articles(score);
     """)
     conn.close()
 

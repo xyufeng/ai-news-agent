@@ -101,6 +101,16 @@ def get_db_connection() -> sqlite3.Connection:
     return conn
 
 
+def get_project_dir() -> str:
+    """Get the project directory path (works locally and on EC2)."""
+    import os
+
+    cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    if os.path.exists(os.path.join(cwd, "pyproject.toml")):
+        return cwd
+    return "/home/ubuntu/ai-news-agent"  # EC2 fallback
+
+
 @st.cache_resource
 def get_sources() -> list[str]:
     """Get list of all sources."""
@@ -161,7 +171,8 @@ def get_articles(
         search_term = f"%{search}%"
         params.extend([search_term, search_term])
 
-    query += f" ORDER BY crawled_at DESC LIMIT {limit}"
+    query += " ORDER BY crawled_at DESC LIMIT ?"
+    params.append(limit)
 
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
@@ -254,13 +265,7 @@ def render_sidebar():
 
     # Crawl button
     if st.sidebar.button("🕷️ Crawl Now", use_container_width=True):
-        import os
-
-        # Find project directory (works locally and on EC2)
-        cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        if not os.path.exists(os.path.join(cwd, "pyproject.toml")):
-            cwd = "/home/ubuntu/ai-news-agent"  # EC2 fallback
-
+        cwd = get_project_dir()
         with st.sidebar.status("Crawling sources...", expanded=True):
             result = subprocess.run(
                 ["uv", "run", "news", "crawl"],
@@ -277,12 +282,7 @@ def render_sidebar():
 
     # Digest button
     if st.sidebar.button("📧 Send Digest", use_container_width=True):
-        import os
-
-        cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        if not os.path.exists(os.path.join(cwd, "pyproject.toml")):
-            cwd = "/home/ubuntu/ai-news-agent"
-
+        cwd = get_project_dir()
         with st.sidebar.status("Generating digest with Claude...", expanded=True):
             result = subprocess.run(
                 ["uv", "run", "news", "digest"],
