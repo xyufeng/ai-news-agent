@@ -437,6 +437,97 @@ def render_articles_list(articles_df: pd.DataFrame):
             """, unsafe_allow_html=True)
 
 
+def render_linkedin_generator():
+    """Render LinkedIn content generator."""
+    st.subheader("📝 LinkedIn Content Generator")
+
+    st.markdown("""
+    Select topics from today's headlines to generate LinkedIn content in your personal writing style.
+    """)
+
+    # Get today's top articles
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+    articles_df = get_articles(date_from=today, limit=50)
+
+    if articles_df.empty:
+        st.info("No articles from today. Run a crawl first.")
+        return
+
+    # Sort by score and show top articles
+    articles_df = articles_df.sort_values("score", ascending=False, na_position="last")
+
+    # Topic selection
+    st.markdown("### Select Topics")
+
+    # Select all checkbox
+    select_all = st.checkbox("Select all topics", value=False)
+
+    # Display articles with checkboxes
+    selected_topics = []
+    cols = st.columns(2)
+
+    for idx, row in articles_df.head(20).iterrows():
+        col_idx = idx % 2
+        with cols[col_idx]:
+            # Use score for default selection (top 5 by default)
+            default_checked = select_all or (row["score"] and row["score"] > articles_df["score"].quantile(0.8))
+
+            if st.checkbox(
+                f"**{row['title'][:80]}{'...' if len(row['title']) > 80 else ''}**\n{row['source']} | ⭐ {int(row['score']) if row['score'] else 0} pts",
+                value=default_checked,
+                key=f"topic_{idx}",
+            ):
+                selected_topics.append({
+                    "title": row["title"],
+                    "summary": row["summary"],
+                    "source": row["source"],
+                    "url": row["url"],
+                    "score": row["score"],
+                })
+
+    st.markdown(f"**{len(selected_topics)} topics selected**")
+
+    if not selected_topics:
+        st.warning("Please select at least one topic.")
+        return
+
+    # Content type selection
+    st.markdown("### Content Type")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("📱 Generate LinkedIn Post", use_container_width=True, type="primary"):
+            with st.spinner("Generating post with Claude..."):
+                from ai_news_agent.linkedin import generate_linkedin_post
+
+                post = generate_linkedin_post(selected_topics)
+
+            st.markdown("### Generated LinkedIn Post")
+            st.markdown("---")
+            st.markdown(post)
+            st.markdown("---")
+
+            # Copy button
+            st.code(post, language=None)
+            st.caption("↑ Copy the text above")
+
+    with col2:
+        if st.button("📄 Generate LinkedIn Article", use_container_width=True, type="primary"):
+            with st.spinner("Generating article with Claude..."):
+                from ai_news_agent.linkedin import generate_linkedin_article
+
+                article = generate_linkedin_article(selected_topics)
+
+            st.markdown("### Generated LinkedIn Article")
+            st.markdown("---")
+            st.markdown(article)
+            st.markdown("---")
+
+            # Copy button
+            st.code(article, language=None)
+            st.caption("↑ Copy the text above")
+
+
 def main():
     st.title("📰 AI News Dashboard")
 
@@ -444,7 +535,7 @@ def main():
     sources, date_from, date_to, search = render_sidebar()
 
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Digest", "Articles", "Analytics"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Digest", "Articles", "Analytics", "LinkedIn"])
 
     with tab1:
         render_digest()
@@ -488,6 +579,9 @@ def main():
                 legend=dict(bgcolor="#161b22", font_color="#fafafa"),
             )
             st.plotly_chart(fig, use_container_width=True)
+
+    with tab4:
+        render_linkedin_generator()
 
 
 if __name__ == "__main__":
