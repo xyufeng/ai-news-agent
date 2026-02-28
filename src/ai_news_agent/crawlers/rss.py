@@ -13,6 +13,11 @@ DEFAULT_FEEDS: dict[str, str] = {
     "anthropic": "https://www.anthropic.com/feed",
     "openai": "https://openai.com/blog/rss.xml",
     "google-ai": "https://blog.google/technology/ai/rss/",
+    "meta-ai": "https://ai.meta.com/rss/",
+    "replicate": "https://replicate.com/blog/rss",
+    "eleutherai": "https://blog.eleuther.ai/index.xml",
+    "lilianweng": "https://lilianweng.github.io/index.xml",
+    "qwen": "https://qwenlm.github.io/blog/index.xml",
 }
 
 

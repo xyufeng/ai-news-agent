@@ -5,6 +5,7 @@ from ai_news_agent.crawlers.arxiv import ArxivCrawler
 from ai_news_agent.crawlers.rss import RSSCrawler
 from ai_news_agent.crawlers.huggingface import HuggingFaceCrawler
 from ai_news_agent.crawlers.microsoft import MicrosoftCrawler
+from ai_news_agent.crawlers.github import GitHubReleasesCrawler
 
 
 def get_all_crawlers() -> list[BaseCrawler]:
@@ -15,6 +16,7 @@ def get_all_crawlers() -> list[BaseCrawler]:
         HuggingFaceCrawler(),
         MicrosoftCrawler(),
         RSSCrawler(),
+        GitHubReleasesCrawler(),
     ]
 
 
