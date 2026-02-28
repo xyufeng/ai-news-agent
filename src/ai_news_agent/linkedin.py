@@ -4,7 +4,6 @@ import anthropic
 
 from ai_news_agent import config
 
-# Reusable client
 _client: anthropic.Anthropic | None = None
 
 
@@ -19,7 +18,7 @@ def _get_client() -> anthropic.Anthropic:
 LINKEDIN_POST_PROMPT = """\
 You are Yufeng, a technology professional writing a LinkedIn post. Write in a conversational, reflective style grounded in real experience. Avoid generic AI-sounding language.
 
-Based on the following news topics, write a LinkedIn POST (shorter, ~150-200 words):
+Based on the following news topics, write a LinkedIn POST (~150-200 words). Do NOT include links in the body - they will be added separately.
 
 Style guidelines:
 - Start with a hook or personal observation
@@ -28,17 +27,18 @@ Style guidelines:
 - End with a question or call to engagement
 - Be authentic, not promotional
 - Use emojis sparingly (1-2 max)
+- Do NOT add a "Links:" section or enumerate sources in the body
 
 Topics to write about:
 {topics}
 
-Write the LinkedIn post now:
+Write the LinkedIn post now (no links section):
 """
 
 LINKEDIN_ARTICLE_PROMPT = """\
 You are Yufeng, a technology professional writing a LinkedIn article. Write in a conversational, reflective style grounded in real experience. Avoid generic AI-sounding language.
 
-Based on the following news topics, write a LinkedIn ARTICLE (longer, ~500-800 words):
+Based on the following news topics, write a LinkedIn ARTICLE (~500-800 words). Do NOT include links in the body - they will be added separately.
 
 Style guidelines:
 - Compelling headline that sparks curiosity
@@ -48,18 +48,18 @@ Style guidelines:
 - Share genuine opinions and lessons learned
 - End with actionable takeaways or thought-provoking questions
 - Be authentic and vulnerable where appropriate
+- Do NOT add a "Links:" section at the end
 
 Topics to write about:
 {topics}
 
-Write the LinkedIn article now with a headline:
+Write the LinkedIn article now with a headline (no links section):
 """
 
 
 def generate_linkedin_post(topics: list[dict]) -> str:
-    """Generate a LinkedIn post from selected topics."""
+    """Generate a LinkedIn post from selected topics with article links."""
     client = _get_client()
-
     topics_text = _format_topics(topics)
 
     message = client.messages.create(
@@ -69,13 +69,14 @@ def generate_linkedin_post(topics: list[dict]) -> str:
             {"role": "user", "content": LINKEDIN_POST_PROMPT.format(topics=topics_text)},
         ],
     )
-    return message.content[0].text
+    post_body = message.content[0].text
+    links_section = _format_links_section(topics)
+    return f"{post_body}\n\n{links_section}"
 
 
 def generate_linkedin_article(topics: list[dict]) -> str:
-    """Generate a LinkedIn article from selected topics."""
+    """Generate a LinkedIn article from selected topics with article links."""
     client = _get_client()
-
     topics_text = _format_topics(topics)
 
     message = client.messages.create(
@@ -85,16 +86,34 @@ def generate_linkedin_article(topics: list[dict]) -> str:
             {"role": "user", "content": LINKEDIN_ARTICLE_PROMPT.format(topics=topics_text)},
         ],
     )
-    return message.content[0].text
+    article_body = message.content[0].text
+    links_section = _format_links_section(topics)
+    return f"{article_body}\n\n{links_section}"
 
 
 def _format_topics(topics: list[dict]) -> str:
-    """Format topics for the prompt."""
+    """Format topics for the prompt (includes URLs for context)."""
     lines = []
     for i, t in enumerate(topics, 1):
         lines.append(f"{i}. **{t['title']}**")
         if t.get("summary"):
             lines.append(f"   {t['summary'][:200]}")
         lines.append(f"   Source: {t['source']}")
+        if t.get("url"):
+            lines.append(f"   URL: {t['url']}")
         lines.append("")
+    return "\n".join(lines)
+
+
+def _format_links_section(topics: list[dict]) -> str:
+    """Format the links section for the end of the post."""
+    lines = ["---", "", "**What I'm reading today:**", ""]
+    for t in topics[:8]:
+        title = t["title"][:60] + "..." if len(t["title"]) > 60 else t["title"]
+        url = t.get("url", "")
+        if url:
+            lines.append(f"• {title}")
+            lines.append(f"  {url}")
+            lines.append("")
+    lines.append("#AI #MachineLearning #TechNews")
     return "\n".join(lines)
