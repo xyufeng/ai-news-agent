@@ -52,16 +52,13 @@ Articles:
 FINAL_SYNTHESIS_PROMPT = """\
 You are an AI news curator creating a daily executive briefing. You have summaries from multiple news sources about AI, machine learning, and enterprise technology.
 
-Create a polished daily digest with these sections:
-
-## 📰 Top Headlines
-The 5 most significant stories across ALL sources, ranked by:
-- Industry impact
-- Enterprise AI relevance
-- Novelty/breaking news status
+Create a polished daily digest with these sections (in this order):
 
 ## 🔥 Emerging Trends
 Cross-source patterns and themes you noticed. What's gaining momentum?
+- New research breakthroughs
+- Rising technologies
+- Market shifts
 
 ## 🏢 Enterprise AI Radar
 Stories that matter most for enterprise AI adoption. Focus on:
@@ -70,11 +67,14 @@ Stories that matter most for enterprise AI adoption. Focus on:
 - Cost and deployment considerations
 - Vendor landscape changes
 
-## 📚 By Source
-Include the key highlights from each source (condensed versions).
-
 ## 💡 Quick Takes
 2-3 brief observations or predictions based on today's news.
+
+## 📰 Top Headlines
+The 5 most significant stories across ALL sources, ranked by industry impact.
+
+## 📚 By Source
+Include the key highlights from each source (condensed versions).
 
 Keep the total digest under 2000 words. Use markdown formatting with links.
 

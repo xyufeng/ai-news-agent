@@ -17,9 +17,12 @@ def _get_client() -> anthropic.Anthropic:
 
 CLUSTERING_PROMPT = """\
 Analyze these AI news articles and:
-1. Group them into 3-5 thematic clusters (e.g., "LLM Releases", "AI Safety", "Open Source", "Research", "Enterprise")
+1. Group them into exactly 3 thematic clusters:
+   - **Emerging Trends**: New developments, research breakthroughs, rising technologies
+   - **Enterprise Radar**: Product releases, vendor news, enterprise AI adoption, compliance/governance
+   - **Quick Takes**: Interesting snippets, community discussions, notable mentions
 2. Pick the 5-8 most newsworthy/interesting articles for a LinkedIn post
-3. Ensure diversity across themes
+3. Ensure diversity across the three themes (at least 1-2 from each if available)
 
 Articles:
 {articles}
@@ -27,11 +30,12 @@ Articles:
 Respond in JSON format:
 {{
   "clusters": [
-    {{"theme": "Theme Name", "article_indices": [0, 2, 5]}},
-    ...
+    {{"theme": "Emerging Trends", "article_indices": [0, 2, 5]}},
+    {{"theme": "Enterprise Radar", "article_indices": [1, 3]}},
+    {{"theme": "Quick Takes", "article_indices": [4, 6]}}
   ],
-  "selected_indices": [0, 2, 5, 7, 10],
-  "reasoning": "Brief explanation of why these were selected"
+  "selected_indices": [0, 1, 2, 3, 5],
+  "reasoning": "Brief explanation of selection and theme distribution"
 }}
 """
 
