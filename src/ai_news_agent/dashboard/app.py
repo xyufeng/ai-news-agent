@@ -108,7 +108,42 @@ def get_project_dir() -> str:
     cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     if os.path.exists(os.path.join(cwd, "pyproject.toml")):
         return cwd
-    return "/home/ubuntu/ai-news-agent"  # EC2 fallback
+    return "/home/ubuntu/ai-news-agent"
+
+
+@st.cache_resource
+def get_git_info() -> dict:
+    """Get current git commit info."""
+    import os
+
+    project_dir = get_project_dir()
+    git_dir = os.path.join(project_dir, ".git")
+
+    if not os.path.exists(git_dir):
+        return {"commit": "unknown", "date": "unknown", "message": "Not a git repo"}
+
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=project_dir,
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        date = subprocess.check_output(
+            ["git", "log", "-1", "--format=%cd", "--date=short"],
+            cwd=project_dir,
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        message = subprocess.check_output(
+            ["git", "log", "-1", "--format=%s"],
+            cwd=project_dir,
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()[:50]
+
+        return {"commit": commit, "date": date, "message": message}
+    except Exception:
+        return {"commit": "unknown", "date": "unknown", "message": "error"}
 
 
 @st.cache_resource
@@ -296,6 +331,14 @@ def render_sidebar():
             else:
                 st.sidebar.error(f"Digest failed: {result.stderr[:200]}")
         st.rerun()
+
+    # Version info
+    st.sidebar.divider()
+    git_info = get_git_info()
+    st.sidebar.caption(f"📦 Version: `{git_info['commit']}`")
+    st.sidebar.caption(f"📅 Deployed: {git_info['date']}")
+    if git_info['message'] != 'unknown':
+        st.sidebar.caption(f"💬 {git_info['message']}")
 
     # Convert dates to ISO format
     date_from_iso = datetime.combine(date_from, datetime.min.time()).isoformat() if date_from else None
