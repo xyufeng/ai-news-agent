@@ -1,0 +1,39 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/ai-news-agent
+            
+            # Pull latest changes
+            git pull origin master
+            
+            # Sync dependencies
+            uv sync
+            
+            # Restart dashboard service
+            sudo systemctl restart ai-news-dashboard
+            
+            echo "Deployed successfully!"
+            
+      - name: Health check
+        run: |
+          sleep 5
+          curl -f ${{ secrets.EC2_HOST }}:8501/_stcore/health || echo "Health check failed"
