@@ -442,10 +442,9 @@ def render_linkedin_generator():
     st.subheader("📝 LinkedIn Content Generator")
 
     st.markdown("""
-    Select topics from today's headlines to generate LinkedIn content in your personal writing style.
+    Generate LinkedIn content in your personal writing style. Use **AI Select** to let Claude pick the most newsworthy articles.
     """)
 
-    # Get today's top articles
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
     articles_df = get_articles(date_from=today, limit=50)
 
@@ -453,51 +452,110 @@ def render_linkedin_generator():
         st.info("No articles from today. Run a crawl first.")
         return
 
-    # Sort by score and show top articles
     articles_df = articles_df.sort_values("score", ascending=False, na_position="last")
+    articles_list = articles_df.head(25).to_dict("records")
 
-    # Topic selection
-    st.markdown("### Select Topics")
+    if "selected_topics" not in st.session_state:
+        st.session_state.selected_topics = []
+    if "clusters" not in st.session_state:
+        st.session_state.clusters = []
 
-    # Select all checkbox
-    select_all = st.checkbox("Select all topics", value=False)
+    col_ai, col_clear = st.columns([1, 1])
+    with col_ai:
+        if st.button("🤖 AI Select (Claude picks best)", use_container_width=True, type="primary"):
+            with st.spinner("Claude is analyzing articles..."):
+                from ai_news_agent.linkedin import cluster_and_select_articles
 
-    # Display articles with checkboxes
-    selected_topics = []
-    cols = st.columns(2)
+                result = cluster_and_select_articles(articles_list)
+                st.session_state.clusters = result.get("clusters", [])
+                selected_indices = result.get("selected_indices", [])
 
-    for idx, row in articles_df.head(20).iterrows():
-        col_idx = idx % 2
-        with cols[col_idx]:
-            # Handle NaN scores safely
+                st.session_state.selected_topics = [
+                    {
+                        "title": articles_list[i]["title"],
+                        "summary": articles_list[i].get("summary"),
+                        "source": articles_list[i]["source"],
+                        "url": articles_list[i]["url"],
+                        "score": articles_list[i].get("score"),
+                    }
+                    for i in selected_indices
+                    if i < len(articles_list)
+                ]
+
+    with col_clear:
+        if st.button("🗑️ Clear Selection", use_container_width=True):
+            st.session_state.selected_topics = []
+            st.session_state.clusters = []
+
+    if st.session_state.clusters:
+        st.markdown("### 📊 Article Clusters")
+        cluster_cols = st.columns(min(len(st.session_state.clusters), 4))
+        for idx, cluster in enumerate(st.session_state.clusters):
+            with cluster_cols[idx % 4]:
+                theme = cluster.get("theme", "Unknown")
+                article_indices = cluster.get("article_indices", [])
+                st.markdown(f"**{theme}**")
+                st.caption(f"{len(article_indices)} articles")
+
+    st.markdown("### 📰 Today's Articles")
+    st.markdown(f"**{len(st.session_state.selected_topics)} articles selected**")
+
+    tabs = st.tabs(["AI Selected", "All Articles"])
+
+    with tabs[0]:
+        if st.session_state.selected_topics:
+            for topic in st.session_state.selected_topics:
+                score_display = f"⭐ {int(topic['score'])} pts" if topic.get("score") else ""
+                st.markdown(f"""
+                **{topic['title']}**  
+                {topic['source']} | {score_display}
+                """)
+                if topic.get("summary"):
+                    st.caption(topic["summary"][:150] + "...")
+        else:
+            st.info("Click 'AI Select' to let Claude pick the best articles, or switch to 'All Articles' to manually select.")
+
+    with tabs[1]:
+        select_all = st.checkbox("Select all", value=False)
+
+        for idx, row in articles_df.head(20).iterrows():
             score = row["score"]
             has_score = pd.notna(score) and score is not None
+            score_display = f"⭐ {int(score)} pts" if has_score else ""
 
-            # Use score for default selection (top 5 by default)
-            default_checked = select_all or (has_score and score > articles_df["score"].quantile(0.8))
+            col_check, col_info = st.columns([0.1, 0.9])
+            with col_check:
+                is_selected = any(t["url"] == row["url"] for t in st.session_state.selected_topics)
+                checked = st.checkbox(
+                    "Select",
+                    value=is_selected or select_all,
+                    key=f"manual_topic_{idx}",
+                    label_visibility="collapsed",
+                )
+            with col_info:
+                st.markdown(f"**{row['title'][:80]}{'...' if len(row['title']) > 80 else ''}**")
+                st.caption(f"{row['source']} | {score_display}")
 
-            score_display = f"⭐ {int(score)} pts" if has_score else "⭐ 0 pts"
-            if st.checkbox(
-                f"**{row['title'][:80]}{'...' if len(row['title']) > 80 else ''}**\n{row['source']} | {score_display}",
-                value=default_checked,
-                key=f"topic_{idx}",
-            ):
-                selected_topics.append({
-                    "title": row["title"],
-                    "summary": row["summary"],
-                    "source": row["source"],
-                    "url": row["url"],
-                    "score": int(score) if has_score else 0,
-                })
+            if checked:
+                if not any(t["url"] == row["url"] for t in st.session_state.selected_topics):
+                    st.session_state.selected_topics.append({
+                        "title": row["title"],
+                        "summary": row.get("summary"),
+                        "source": row["source"],
+                        "url": row["url"],
+                        "score": row.get("score"),
+                    })
+            else:
+                st.session_state.selected_topics = [
+                    t for t in st.session_state.selected_topics if t["url"] != row["url"]
+                ]
 
-    st.markdown(f"**{len(selected_topics)} topics selected**")
-
-    if not selected_topics:
+    if not st.session_state.selected_topics:
         st.warning("Please select at least one topic.")
         return
 
-    # Content type selection
-    st.markdown("### Content Type")
+    st.divider()
+    st.markdown("### Generate Content")
     col1, col2 = st.columns(2)
 
     with col1:
@@ -505,32 +563,28 @@ def render_linkedin_generator():
             with st.spinner("Generating post with Claude..."):
                 from ai_news_agent.linkedin import generate_linkedin_post
 
-                post = generate_linkedin_post(selected_topics)
+                post = generate_linkedin_post(st.session_state.selected_topics)
 
             st.markdown("### Generated LinkedIn Post")
             st.markdown("---")
             st.markdown(post)
             st.markdown("---")
-
-            # Copy button
             st.code(post, language=None)
-            st.caption("↑ Copy the text above")
+            st.caption("↑ Copy the text above to post on LinkedIn")
 
     with col2:
         if st.button("📄 Generate LinkedIn Article", use_container_width=True, type="primary"):
             with st.spinner("Generating article with Claude..."):
                 from ai_news_agent.linkedin import generate_linkedin_article
 
-                article = generate_linkedin_article(selected_topics)
+                article = generate_linkedin_article(st.session_state.selected_topics)
 
             st.markdown("### Generated LinkedIn Article")
             st.markdown("---")
             st.markdown(article)
             st.markdown("---")
-
-            # Copy button
             st.code(article, language=None)
-            st.caption("↑ Copy the text above")
+            st.caption("↑ Copy the text above to post on LinkedIn")
 
 
 def main():

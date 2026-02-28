@@ -15,6 +15,26 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
+CLUSTERING_PROMPT = """\
+Analyze these AI news articles and:
+1. Group them into 3-5 thematic clusters (e.g., "LLM Releases", "AI Safety", "Open Source", "Research", "Enterprise")
+2. Pick the 5-8 most newsworthy/interesting articles for a LinkedIn post
+3. Ensure diversity across themes
+
+Articles:
+{articles}
+
+Respond in JSON format:
+{{
+  "clusters": [
+    {{"theme": "Theme Name", "article_indices": [0, 2, 5]}},
+    ...
+  ],
+  "selected_indices": [0, 2, 5, 7, 10],
+  "reasoning": "Brief explanation of why these were selected"
+}}
+"""
+
 LINKEDIN_POST_PROMPT = """\
 You are Yufeng, a technology professional writing a LinkedIn post. Write in a conversational, reflective style grounded in real experience. Avoid generic AI-sounding language.
 
@@ -57,6 +77,31 @@ Write the LinkedIn article now with a headline (no links section):
 """
 
 
+def cluster_and_select_articles(articles: list[dict]) -> dict:
+    """Use Claude to cluster articles by theme and select the most newsworthy ones."""
+    client = _get_client()
+    
+    articles_text = _format_articles_for_clustering(articles)
+    
+    message = client.messages.create(
+        model=config.ANTHROPIC_MODEL,
+        max_tokens=1024,
+        messages=[
+            {"role": "user", "content": CLUSTERING_PROMPT.format(articles=articles_text)},
+        ],
+    )
+    
+    import json
+    response_text = message.content[0].text
+    
+    try:
+        json_start = response_text.find("{")
+        json_end = response_text.rfind("}") + 1
+        return json.loads(response_text[json_start:json_end])
+    except (json.JSONDecodeError, ValueError):
+        return {"clusters": [], "selected_indices": list(range(min(5, len(articles)))), "reasoning": "Default selection"}
+
+
 def generate_linkedin_post(topics: list[dict]) -> str:
     """Generate a LinkedIn post from selected topics with article links."""
     client = _get_client()
@@ -89,6 +134,18 @@ def generate_linkedin_article(topics: list[dict]) -> str:
     article_body = message.content[0].text
     links_section = _format_links_section(topics)
     return f"{article_body}\n\n{links_section}"
+
+
+def _format_articles_for_clustering(articles: list[dict]) -> str:
+    """Format articles for the clustering prompt."""
+    lines = []
+    for i, a in enumerate(articles):
+        lines.append(f"[{i}] {a['title']}")
+        if a.get("summary"):
+            lines.append(f"    {a['summary'][:150]}")
+        lines.append(f"    Source: {a['source']} | Score: {a.get('score', 'N/A')}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _format_topics(topics: list[dict]) -> str:
