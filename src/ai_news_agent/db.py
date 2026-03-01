@@ -21,6 +21,7 @@ def init_db() -> None:
             source TEXT NOT NULL,
             author TEXT,
             summary TEXT,
+            neutral_summary TEXT,
             published_at TEXT,
             crawled_at TEXT NOT NULL,
             score INTEGER
@@ -58,6 +59,12 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_ratings_article ON article_ratings(article_id);
         CREATE INDEX IF NOT EXISTS idx_preferences_lookup ON user_preferences(category, key);
     """)
+    
+    try:
+        conn.execute("ALTER TABLE articles ADD COLUMN neutral_summary TEXT")
+    except sqlite3.OperationalError:
+        pass
+    
     conn.close()
 
 
@@ -274,3 +281,31 @@ def get_preference_stats() -> dict[str, list[dict]]:
                 "sample_count": r["sample_count"],
             })
     return result
+
+
+# ===== Summary Functions =====
+
+def update_neutral_summary(article_id: int, summary: str) -> None:
+    """Update the neutral summary for an article."""
+    conn = _connect()
+    conn.execute(
+        "UPDATE articles SET neutral_summary = ? WHERE id = ?",
+        (summary, article_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_articles_without_neutral_summary(limit: int = 100) -> list[dict]:
+    """Get articles that don't have a neutral summary yet."""
+    conn = _connect()
+    rows = conn.execute(
+        """SELECT id, url, title, source, summary 
+           FROM articles 
+           WHERE neutral_summary IS NULL 
+           ORDER BY crawled_at DESC 
+           LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]

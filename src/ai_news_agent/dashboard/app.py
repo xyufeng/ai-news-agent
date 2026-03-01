@@ -670,8 +670,10 @@ def render_review_mode():
             st.markdown(f"### {article['title']}")
             st.caption(f"**Source:** {article['source']} | **Score:** {article.get('score', 'N/A') or 'N/A'}")
             
-            if article.get("summary"):
-                st.markdown(f"**Summary:** {article['summary'][:400]}{'...' if len(article['summary']) > 400 else ''}")
+            display_summary = article.get("neutral_summary") or article.get("summary")
+            if display_summary:
+                summary_label = "**Summary:**" if article.get("neutral_summary") else "**Summary (from source):**"
+                st.markdown(f"{summary_label} {display_summary[:400]}{'...' if len(display_summary) > 400 else ''}")
             
             st.markdown(f"**URL:** [{article['url'][:60]}...]({article['url']})")
             
@@ -721,6 +723,20 @@ def render_review_mode():
                     db_module.save_rating(a["id"], "neutral")
                 st.success(f"Marked {len(unrated) - idx} articles as neutral")
                 st.rerun()
+        
+        st.divider()
+        col_sum1, col_sum2 = st.columns(2)
+        with col_sum1:
+            from ai_news_agent import db as db_mod
+            without_summary = len(db_mod.get_articles_without_neutral_summary(limit=1000))
+            st.metric("Articles without neutral summary", without_summary)
+        with col_sum2:
+            if st.button("🔄 Generate Summaries", help="Generate neutral summaries for recent articles"):
+                from ai_news_agent.summarizer import batch_generate_summaries
+                with st.spinner("Generating summaries with Claude..."):
+                    generated = batch_generate_summaries(batch_size=20)
+                    st.success(f"Generated {generated} neutral summaries")
+                    st.rerun()
     
     with tab_prefs:
         st.markdown("### 🎯 What Your Agent Has Learned")
