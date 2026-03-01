@@ -663,6 +663,12 @@ def render_review_mode():
                 st.session_state.review_index = 0
             
             idx = st.session_state.review_index
+            
+            # Ensure index is within bounds (in case unrated list changed)
+            if idx >= len(unrated):
+                idx = 0
+                st.session_state.review_index = 0
+            
             article = unrated[idx]
             
             st.progress((idx + 1) / len(unrated), text=f"Article {idx + 1} of {len(unrated)}")
