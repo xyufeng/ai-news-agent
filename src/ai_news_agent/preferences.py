@@ -69,7 +69,8 @@ def classify_type(article: dict) -> str:
         if any(kw in text for kw in keywords):
             return article_type
     
-    return _classify_with_claude(article, "type", list(TYPE_KEYWORDS.keys()))[0] or "news"
+    result = _classify_with_claude(article, "type", list(TYPE_KEYWORDS.keys()))
+    return result[0] if result else "news"
 
 
 def assess_insights(article: dict) -> list[str]:
