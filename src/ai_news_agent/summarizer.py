@@ -42,6 +42,9 @@ def fetch_meta_description(url: str) -> str | None:
     Tries og:description first, then meta description tag.
     Returns None if not found or on error.
     """
+    if not url:
+        return None
+    
     try:
         with httpx.Client(follow_redirects=True, timeout=10) as client:
             resp = client.get(url)
