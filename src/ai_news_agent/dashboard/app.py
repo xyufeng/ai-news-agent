@@ -630,6 +630,155 @@ def render_linkedin_generator():
             st.caption("↑ Copy the text above to post on LinkedIn")
 
 
+def render_review_mode():
+    """Render the Review Mode for batch rating articles."""
+    st.subheader("📝 Review Today's Articles")
+    st.markdown("Rate articles to train your personalized news agent. Your ratings help improve article selection.")
+    
+    from ai_news_agent import db as db_module
+    from ai_news_agent.preferences import learn_from_rating, get_top_preferences
+    
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+    
+    unrated = db_module.get_unrated_articles(today)
+    rated = db_module.get_rated_articles(today)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Unrated", len(unrated))
+    with col2:
+        st.metric("Rated Today", len(rated))
+    with col3:
+        total_ratings = len(db_module.get_rated_articles())
+        st.metric("Total Ratings", total_ratings)
+    
+    tab_rate, tab_prefs = st.tabs(["Rate Articles", "Learned Preferences"])
+    
+    with tab_rate:
+        if not unrated:
+            st.success("🎉 All articles rated for today!")
+            st.info("Run a crawl to get more articles, or check back tomorrow.")
+        else:
+            if "review_index" not in st.session_state:
+                st.session_state.review_index = 0
+            
+            idx = st.session_state.review_index
+            article = unrated[idx]
+            
+            st.progress((idx + 1) / len(unrated), text=f"Article {idx + 1} of {len(unrated)}")
+            
+            st.markdown(f"### {article['title']}")
+            st.caption(f"**Source:** {article['source']} | **Score:** {article.get('score', 'N/A') or 'N/A'}")
+            
+            if article.get("summary"):
+                st.markdown(f"**Summary:** {article['summary'][:400]}{'...' if len(article['summary']) > 400 else ''}")
+            
+            st.markdown(f"**URL:** [{article['url'][:60]}...]({article['url']})")
+            
+            st.divider()
+            st.markdown("### Rate this article")
+            
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+            
+            with col1:
+                if st.button("👎 Skip", use_container_width=True, type="secondary"):
+                    db_module.save_rating(article["id"], "down")
+                    learn_from_rating(article["id"], "down")
+                    st.session_state.review_index = min(idx + 1, len(unrated) - 1)
+                    st.rerun()
+            
+            with col2:
+                if st.button("😐 Neutral", use_container_width=True):
+                    db_module.save_rating(article["id"], "neutral")
+                    st.session_state.review_index = min(idx + 1, len(unrated) - 1)
+                    st.rerun()
+            
+            with col3:
+                if st.button("👍 Like", use_container_width=True, type="primary"):
+                    db_module.save_rating(article["id"], "up")
+                    learn_from_rating(article["id"], "up")
+                    st.session_state.review_index = min(idx + 1, len(unrated) - 1)
+                    st.rerun()
+            
+            with col4:
+                if st.button("⏭️ Skip", use_container_width=True):
+                    st.session_state.review_index = min(idx + 1, len(unrated) - 1)
+                    st.rerun()
+            
+            st.divider()
+            col_nav1, col_nav2 = st.columns(2)
+            with col_nav1:
+                if st.button("← Previous", disabled=(idx == 0)):
+                    st.session_state.review_index = max(0, idx - 1)
+                    st.rerun()
+            with col_nav2:
+                if st.button("Next →", disabled=(idx >= len(unrated) - 1)):
+                    st.session_state.review_index = min(len(unrated) - 1, idx + 1)
+                    st.rerun()
+            
+            if st.button("Mark remaining as neutral"):
+                for a in unrated[idx:]:
+                    db_module.save_rating(a["id"], "neutral")
+                st.success(f"Marked {len(unrated) - idx} articles as neutral")
+                st.rerun()
+    
+    with tab_prefs:
+        st.markdown("### 🎯 What Your Agent Has Learned")
+        st.caption("Preferences activate after reaching minimum rating thresholds (10 for sources, 5 for others)")
+        
+        prefs = get_top_preferences(limit=10)
+        
+        categories = [
+            ("📰 Sources", "source", 10),
+            ("🏷️ Content Themes", "theme", 5),
+            ("📄 Article Types", "type", 5),
+            ("💡 Insight Quality", "insight", 5),
+        ]
+        
+        for label, key, threshold in categories:
+            items = prefs.get(key, [])
+            if not items:
+                continue
+            
+            st.markdown(f"**{label}**")
+            
+            for item in items:
+                weight = item["weight"]
+                count = item["sample_count"]
+                active = count >= threshold
+                
+                if weight > 0.3:
+                    emoji = "💚"
+                elif weight > 0:
+                    emoji = "💛"
+                elif weight > -0.3:
+                    emoji = "🤍"
+                else:
+                    emoji = "👎"
+                
+                status = "✅" if active else f"⏳ ({count}/{threshold})"
+                bar_width = int(abs(weight) * 50)
+                bar_color = "#238636" if weight > 0 else "#f85149"
+                
+                st.markdown(f"""
+                {emoji} **{item['key']}** {status}
+                <div style="background-color: {bar_color}; width: {bar_width}px; height: 8px; border-radius: 4px; display: inline-block;"></div>
+                <span style="color: #8b949e; font-size: 12px;">{weight:+.2f} ({count} ratings)</span>
+                """, unsafe_allow_html=True)
+            
+            st.write("")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Reset All Preferences", type="secondary"):
+                db_module.reset_preferences()
+                st.success("Preferences reset!")
+                st.rerun()
+        with col2:
+            total_prefs = sum(len(v) for v in prefs.values())
+            st.metric("Total Preferences Learned", total_prefs)
+
+
 def main():
     st.title("📰 AI News Dashboard")
 
@@ -637,7 +786,7 @@ def main():
     sources, date_from, date_to, search = render_sidebar()
 
     # Create tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["Digest", "Articles", "Analytics", "LinkedIn"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Digest", "Articles", "Analytics", "LinkedIn", "Review"])
 
     with tab1:
         render_digest()
@@ -684,6 +833,9 @@ def main():
 
     with tab4:
         render_linkedin_generator()
+
+    with tab5:
+        render_review_mode()
 
 
 if __name__ == "__main__":

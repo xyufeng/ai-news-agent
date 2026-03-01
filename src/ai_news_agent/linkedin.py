@@ -2,7 +2,8 @@
 
 import anthropic
 
-from ai_news_agent import config
+from ai_news_agent import config, db
+from ai_news_agent.preferences import score_article
 
 _client: anthropic.Anthropic | None = None
 
@@ -23,6 +24,8 @@ Analyze these AI news articles and:
    - **Quick Takes**: Interesting snippets, community discussions, notable mentions
 2. Pick the 5-8 most newsworthy/interesting articles for a LinkedIn post
 3. Ensure diversity across the three themes (at least 1-2 from each if available)
+
+{preferences_context}
 
 Articles:
 {articles}
@@ -85,13 +88,24 @@ def cluster_and_select_articles(articles: list[dict]) -> dict:
     """Use Claude to cluster articles by theme and select the most newsworthy ones."""
     client = _get_client()
     
-    articles_text = _format_articles_for_clustering(articles)
+    preferences = db.get_all_preferences()
+    
+    scored = [(a, score_article(a, preferences)) for a in articles]
+    sorted_articles = sorted(scored, key=lambda x: x[1], reverse=True)
+    top_articles = [a for a, s in sorted_articles[:25]]
+    
+    preferences_context = _build_preferences_context(preferences)
+    
+    articles_text = _format_articles_for_clustering(top_articles)
     
     message = client.messages.create(
         model=config.ANTHROPIC_MODEL,
         max_tokens=1024,
         messages=[
-            {"role": "user", "content": CLUSTERING_PROMPT.format(articles=articles_text)},
+            {"role": "user", "content": CLUSTERING_PROMPT.format(
+                articles=articles_text,
+                preferences_context=preferences_context
+            )},
         ],
     )
     
@@ -101,9 +115,57 @@ def cluster_and_select_articles(articles: list[dict]) -> dict:
     try:
         json_start = response_text.find("{")
         json_end = response_text.rfind("}") + 1
-        return json.loads(response_text[json_start:json_end])
+        result = json.loads(response_text[json_start:json_end])
+        
+        if result.get("selected_indices"):
+            result["selected_articles"] = [top_articles[i] for i in result["selected_indices"] if i < len(top_articles)]
+        
+        return result
     except (json.JSONDecodeError, ValueError):
-        return {"clusters": [], "selected_indices": list(range(min(5, len(articles)))), "reasoning": "Default selection"}
+        return {
+            "clusters": [],
+            "selected_indices": list(range(min(5, len(top_articles)))),
+            "selected_articles": top_articles[:5],
+            "reasoning": "Default selection"
+        }
+
+
+def _build_preferences_context(preferences: dict) -> str:
+    """Build preference context string for the prompt."""
+    if not preferences:
+        return ""
+    
+    high_sources = []
+    low_sources = []
+    high_themes = []
+    
+    for (cat, key), pref in preferences.items():
+        if pref["sample_count"] < 5:
+            continue
+        
+        if cat == "source" and pref["sample_count"] >= 10:
+            if pref["weight"] > 0.3:
+                high_sources.append(key)
+            elif pref["weight"] < -0.3:
+                low_sources.append(key)
+        elif cat == "theme" and pref["weight"] > 0.3:
+            high_themes.append(key)
+    
+    if not high_sources and not low_sources and not high_themes:
+        return ""
+    
+    lines = ["YUFENG'S LEARNED PREFERENCES:"]
+    
+    if high_sources:
+        lines.append(f"- Preferred sources (prioritize): {', '.join(high_sources)}")
+    if low_sources:
+        lines.append(f"- Less relevant sources: {', '.join(low_sources)}")
+    if high_themes:
+        lines.append(f"- Topics of interest: {', '.join(high_themes)}")
+    
+    lines.append("Use these preferences when selecting articles.\n")
+    
+    return "\n".join(lines)
 
 
 def generate_linkedin_post(topics: list[dict]) -> str:

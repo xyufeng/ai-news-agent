@@ -199,14 +199,21 @@ def send_email(digest_content: str, digest_id: int) -> None:
 
 def generate_digest(since: str, dry_run: bool = False) -> str:
     """Full digest pipeline: query articles, synthesize, optionally email."""
+    from ai_news_agent.preferences import score_article
+    
     articles = db.get_articles_since(since)
     if not articles:
         return "No articles found for the given period."
-
-    content = synthesize(articles)
-    digest_id = db.save_digest(content, len(articles))
-
+    
+    preferences = db.get_all_preferences()
+    scored = [(a, score_article(a, preferences)) for a in articles]
+    sorted_articles = sorted(scored, key=lambda x: x[1], reverse=True)
+    top_articles = [a for a, s in sorted_articles[:50]]
+    
+    content = synthesize(top_articles)
+    digest_id = db.save_digest(content, len(top_articles))
+    
     if not dry_run:
         send_email(content, digest_id)
-
+    
     return content
